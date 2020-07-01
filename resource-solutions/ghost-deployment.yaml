@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ghost
+  name: ghost
+  namespace: ghost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ghost
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: ghost
+    spec:
+      containers:
+        - image: ghost
+          name: ghost
+          env:
+            - name: DATABASE__CLIENT
+              value: mysql
+            - name: DATABASE__CONNECTION__HOST
+              value: mysql
+            - name: DATABASE__CONNECTION__USER
+              value: root
+            - name: DATABASE__CONNECTION__PASSWORD
+              value: secret
+            - name: DATABASE__CONNECTION__DATABASE
+              value: ghost
+            - name: url
+              value: http://localhost:8080
+          resources: {}

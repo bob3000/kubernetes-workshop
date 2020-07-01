@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mysql
+  name: mysql
+  namespace: ghost
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - image: mysql
+          name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: secret
+            - name: MYSQL_DATABASE
+              value: ghost
+          resources: {}
