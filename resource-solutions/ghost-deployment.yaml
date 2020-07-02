@@ -20,15 +20,15 @@ spec:
         - image: ghost
           name: ghost
           env:
-            - name: DATABASE__CLIENT
+            - name: database__client
               value: mysql
-            - name: DATABASE__CONNECTION__HOST
+            - name: database__connection__host
               value: mysql
-            - name: DATABASE__CONNECTION__USER
+            - name: database__connection__user
               value: root
-            - name: DATABASE__CONNECTION__PASSWORD
+            - name: database__connection__password
               value: secret
-            - name: DATABASE__CONNECTION__DATABASE
+            - name: database__connection__database
               value: ghost
             - name: url
               value: http://localhost:8080
