@@ -15,8 +15,11 @@
     - [Kubectl contexts](#kubectl-contexts)
     - [Creating a _Namespace_](#creating-a-namespace)
     - [A _Deployment_ creates your pods](#a-deployment-creates-your-pods)
+    - [Make your _Pods_ available via _Services_](#make-your-pods-available-via-services)
+    - [What's wrong with Ghost?](#whats-wrong-with-ghost)
     - [Tailing the log](#tailing-the-log)
-    - [Make your pods available via _Services_](#make-your-pods-available-via-services)
+    - [Running Nginx](#running-nginx)
+    - [Accessing a _Pod_ via port forwarding](#accessing-a-pod-via-port-forwarding)
     - [How to inject a file](#how-to-inject-a-file)
     - [Scaling up](#scaling-up)
     - [Getting persistent](#getting-persistent)
@@ -49,14 +52,14 @@ containerized applications and workloads.
 ### Control Pane components
 
 - _kube-api-server_ receives commands from client apps (e.g. `kubectl`)
-- _etcd_ keep Control Pane Nodes in sync
+- _etcd_ keeps Control Pane Nodes in sync
 - _cloud-controller-manager_ communicates with Cloud APIs (e.g. AWS)
 - _kube-controller-manager_ coordinates nodes and application replication
 - _kube-scheduler_ distributes pods evenly on worker nodes
 
 ### Node components
 
-- _kubelet_ turns specifications into running pods
+- _kubelet_ turns object specifications into Kubernetes objects
 - _kube-proxy_ makes pods reachable via network
 
 ### Addons
@@ -174,7 +177,72 @@ and see what it's doing
 kubectl get pods --watch
 ```
 
-Looks good? Then let's move on to the ghost blog. Read through
+Detailed information about the deployment can be obtained with the
+`kubectl describe ..` command. Try
+
+```sh
+kubectl describe deployment mysql
+```
+
+No worries if you do not understand every single detail yet. What you might find
+helpful for the moment is looking at the last few lines in the _Events_ section
+which will display different kinds of errors if anything goes wrong. Right now
+you should see something like
+
+```
+Events:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  7m38s  deployment-controller  Scaled up replica set mysql-58b5575c56 to 1
+```
+
+Looks good? Let's connect our database to the network.
+
+### Make your _Pods_ available via _Services_
+
+In Kubernetes _Pods_ are not supposed to be contacted directly. The whole
+topic of network connectivity is encapsulated into an object type called
+_Service_.
+
+To be absolutely clear about it, every _Pod_ which is supposed to be
+available via net work - may it privately / internally or publicly /
+externally - must have a _Service_ object associated thus we need a service
+for all our _Deployments_.
+
+Let's start off with MySQL.
+
+```sh
+kubectl apply -f mysql-service.yaml
+```
+
+and then check out it's internal
+
+```sh
+kubectl describe service mysql
+```
+
+Looks almost good except this `Endpoints:         <none>`. Apparently
+it has no _Pods_ listening to the service but how is it even supposed
+to know to which _Pods_ it should bind to? Here is the answer.
+
+Every _Service_ uses a label selector to find all the pods which belong
+to a certain type of service. Have a look at the file
+[resources/mysql-service](resources/mysql-service.yaml) and
+compare the `selector` statement with the labels set in the file
+[resources/mysql-service](resources/mysql-deployment.yaml).
+
+After you corrected the error apply the configuration again.
+
+```sh
+kubectl apply -f mysql-service.yaml
+kubectl describe service mysql
+```
+
+Now it should look similar to `Endpoints:         172.17.0.4:3306`.
+
+### What's wrong with Ghost?
+
+Let's move on to the ghost blog. Read through
 [resources/ghost-deployment.yaml](resources/ghost-deployment.yaml) and apply it with
 
 ```sh
@@ -188,8 +256,18 @@ kubectl get pods --watch
 ```
 
 Not great! As we see the _Pod_ quits with an error until it stays in a
-_CrashLoopBackOff_ state. First thing we can do in such a case is to have a look
-inside the application logs
+_CrashLoopBackOff_ state. We already learned a trick on obtaining more information.
+We describe the _Pos_ selected by it's label.
+
+```sh
+kubectl describe pod -l=app=ghost
+```
+
+That doesn't look very helpful though. What we see here is telling us that Kubernetes
+basically has no Problems with our configuration which points us to a problem with
+the application configuration.
+
+First thing we can do in such a case is to have a look inside the application logs.
 
 ### Tailing the log
 
@@ -197,7 +275,7 @@ inside the application logs
 kubectl logs -f deploy/ghost
 ```
 
-It says `Invalid database host.` That is suspicious. Have a look at the two
+It says something about a databse error. That is suspicious! Have a look at the two
 deployment configurations 
 [resources/ghost-deployment.yaml](resources/ghost-deployment.yaml) and
 [resources/mysql-deployment.yaml](resources/mysql-deployment.yaml) and see if you
@@ -216,6 +294,8 @@ and see how we're doing this time.
 kubectl get pods --watch
 ```
 
+### Running Nginx
+
 Next thing to do is to run Nginx.
 
 ```sh
@@ -226,46 +306,6 @@ kubectl get pods
 That was almost to too easy. We have all our component running. Let's
 wire everything together.
 
-### Make your pods available via _Services_
-
-In Kubernetes _Pods_ are not supposed to be contacted directly. The whole
-topic of network connectivity is encapsulated into an object type called
-_Service_.
-
-To be absolutely clear about it, every _Pod_ which is supposed to be
-available via net work - may it privately / internally or publicly /
-externally - must have a service object thus we need a service for all
-our _Deployments_.
-
-Let's start off with MySQL.
-
-```sh
-kubectl apply -f mysql-service.yaml
-```
-
-and then check out it's internal
-
-```sh
-kubectl describe service mysql
-```
-
-Looks almost good except this `Endpoints:         <none>`. Apparently
-it has no _Pods_ listening to the service but how is it event supposed
-to know to which _Pods_ it should bind to? Here is the answer.
-
-Every _Service_ uses a label selector to find all the pods which belong
-to a certain type of service. Have a look at the file
-[resources/mysql-service](resource-solutions/mysql-service.yaml) and
-compare the `selector` statement with the labels set in the file
-[resources/mysql-service](resource-solutions/mysql-deployment.yaml).
-
-After you corrected the error apply the configuration again.
-
-```sh
-kubectl apply -f mysql-service.yaml
-kubectl describe service mysql
-```
-
 Now you can set up the _Services_ for Ghost and Nginx.
 
 ```sh
@@ -273,12 +313,17 @@ kubectl apply -f ghost-service.yaml
 kubectl apply -f nginx-service.yaml
 ```
 
+Maybe you should check if the services are configured correctly as we
+discussed above.
+
+### Accessing a _Pod_ via port forwarding
+
 All _Pods_ are now available via network but how do we actually connect
 to our blog? The way you would do it in a production grade setup is out
-of scope of this tutorial but for now there is a neat trick which is also
-very handy for debugging purpose.
+of scope of this very tutorial but for now there is a neat trick which is
+also very handy for debugging purpose.
 
-The command `kubectl port-forward` let's you access all services via a
+The command `kubectl port-forward` let's you access all _Pods_ via a
 tunnel to your computer. This way are able to connect to our Nginx.
 
 Try that
@@ -292,7 +337,7 @@ and navigate to [http://localhost:8080](http://localhost:8080).
 Warm greetings from Nginx! Nice, but not exactly what we wanted. What
 we see here is just a plain vanilla Nginx without any configuration.
 To get it configured you could either build a custom Nginx Docker image
-with your configuration included you you can just let Kubernetes inject
+with your configuration included or you can just let Kubernetes inject
 the configuration file for you.
 
 ### How to inject a file
@@ -307,6 +352,9 @@ apply it
 ```sh
 kubectl apply -f nginx-configmap.yaml
 ```
+
+Bonus questions: Do you maybe have an idea on how to list _ConfigMaps_
+deployed in our _Namespace_?
 
 Next we need to adjust the Nginx _Deployment_ so the configuration is
 actually being mounted. Add the following lines to the end of 
@@ -331,13 +379,17 @@ kubectl apply -f nginx-deployment.yaml
 
 Finally have another look at [http://localhost:8080](http://localhost:8080).
 If it's not working you might need to restart you `kubectl port-forward`
-command.
-
-### Scaling up
+command. Also you might have to delete your browser cache in order to see
+the updated content.
 
 Let's set up the blog at [http://localhost:8080/ghost](http://localhost:8080/ghost).
 Fill in the form and enjoy the view of the admin panel for a moment and then prepare
-for the next 1000 concurrent users. If our blog gets overwhelmed by the high numbers
+for the next 1000 concurrent users. The set up of the blog is necessary for the
+next steps to come.
+
+### Scaling up
+
+If our blog gets overwhelmed by the high numbers
 of users we can user horizontal scaling to leverage our computation powers.
 
 ```sh
@@ -363,17 +415,20 @@ kubectl get pods --watch
 
 Why is the _Pod_ still there if we just deleted it? It's still there because the
 _Deployment_ object which spawned the _Pod_ for us is doing a good job - it replaces
-a _Pod_ whenever it fails. Now you learned to difference between scaling a _Deployment_
-and deleting a _Pod_. If you just fire up a pod yourself without a _Deployment_ it
-will not be respawned automatically.
+a _Pod_ whenever it fails.
+
+Now you learned to difference between scaling a _Deployment_ and deleting a _Pod_.
+If you just fire up a pod yourself without a _Deployment_ it will not be respawned
+automatically.
 
 Let's bring back our Ghost _Pod_ and see how our Blog is doing.
 
 ```sh
-kubectl scale --replicas 0 deploy/ghost
+kubectl scale --replicas 1 deploy/ghost
 kubectl get pods
-
 ```
+
+Look again at 
 [http://localhost:8080/ghost](http://localhost:8080/ghost)
 
 All is lost! When we killed the Database it sent it's data into oblivion. Containers
@@ -395,8 +450,8 @@ Add the following lines to
 That should look familiar to you from the Nginx configuration. The main difference is
 the very last line which is the volume type. Before we declared a volume from a
 _ConfigMap_ and now it says `emptyDir: {}` which means that we're just mounting a
-folder from the host machine into the container. Something you won't see very often
-in production but it's good enough for our example.
+folder from the host machine into the container. This is something you won't see very
+often in production but it's good enough for our example.
 
 Kubernetes supports all kinds of volumes from different persistency mechanisms
 and cloud providers. We can't go into detail here but we can get familiar with the
@@ -411,10 +466,10 @@ kubectl apply -f mysql-deployment.yaml
 kubectl get pods --watch
 ```
 
-### Cleaning up
-
 Before we tear everything down feel free to do further experiments and check if
 this time the data is still there after you deleted the MySQL pod.
+
+### Cleaning up
 
 When you're done you can get rid of the whole setup with a single command.
 
