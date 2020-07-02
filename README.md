@@ -23,6 +23,7 @@
     - [How to inject a file](#how-to-inject-a-file)
     - [Scaling up](#scaling-up)
     - [Getting persistent](#getting-persistent)
+    - [Updating a container image](#updating-a-container-image)
     - [Cleaning up](#cleaning-up)
   - [Further reading](#further-reading)
 
@@ -465,6 +466,13 @@ Finally we have to apply our changes
 kubectl apply -f mysql-deployment.yaml
 kubectl get pods --watch
 ```
+
+### Updating a container image
+
+Guess what, a new version of Ghost was just released as we speak! Time to update.
+Edit [resources/ghost-deployment.yaml](resources/ghost-deployment.yaml) and change
+the line `- image: ghost` to `- image: ghost:3.22` and redeploy. You should already
+know what to do by now. if not review the section where we initially deployed Ghost.
 
 Before we tear everything down feel free to do further experiments and check if
 this time the data is still there after you deleted the MySQL pod.
