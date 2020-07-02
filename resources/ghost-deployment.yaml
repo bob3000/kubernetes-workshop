@@ -27,7 +27,7 @@ spec:
             - name: database__connection__user
               value: root
             - name: database__connection__password
-              value: secret
+              value: sercet
             - name: database__connection__database
               value: ghost
             - name: url
