@@ -31,5 +31,5 @@ spec:
             - name: database__connection__database
               value: ghost
             - name: url
-              value: http://ghost
+              value: http://localhost:8080
           resources: {}
