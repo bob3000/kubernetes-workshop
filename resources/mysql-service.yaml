@@ -11,4 +11,4 @@ spec:
       protocol: TCP
       targetPort: 3306
   selector:
-    app: my_sql
+    app: mysql
