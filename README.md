@@ -136,7 +136,7 @@ Namespaces either can be be set temporarily with the `-n` switch like
 `kubectl -n ghost ...` or permanently like so
 
 ```sh
-kubectl config use-context <mycontext> --namespace ghost
+kubectl config set-context --current --namespace ghost
 ```
 
 To see the currently selected namespace do
@@ -222,7 +222,7 @@ and then check out it's internal
 kubectl describe service mysql
 ```
 
-Looks almost good except this `Endpoints:         <none>`. Apparently
+Looks almost good except this `Endpoints: <none>`. Apparently
 it has no _Pods_ listening to the service but how is it even supposed
 to know to which _Pods_ it should bind to? Here is the answer.
 
@@ -239,7 +239,7 @@ kubectl apply -f mysql-service.yaml
 kubectl describe service mysql
 ```
 
-Now it should look similar to `Endpoints:         172.17.0.4:3306`.
+Now it should look similar to `Endpoints: 172.17.0.4:3306`.
 
 ### What's wrong with Ghost?
 
@@ -277,7 +277,7 @@ kubectl logs -f deploy/ghost
 ```
 
 It says something about a databse error. That is suspicious! Have a look at the two
-deployment configurations 
+deployment configurations
 [resources/ghost-deployment.yaml](resources/ghost-deployment.yaml) and
 [resources/mysql-deployment.yaml](resources/mysql-deployment.yaml) and see if you
 can spot the error **without immediately telling everybody** so everyone gets his
@@ -358,7 +358,7 @@ Bonus questions: Do you maybe have an idea on how to list _ConfigMaps_
 deployed in our _Namespace_?
 
 Next we need to adjust the Nginx _Deployment_ so the configuration is
-actually being mounted. Add the following lines to the end of 
+actually being mounted. Add the following lines to the end of
 [resources/nginx-deployment.yaml](resources/nginx-deployment.yaml).
 
 ```yaml
@@ -429,7 +429,7 @@ kubectl scale --replicas 1 deploy/ghost
 kubectl get pods
 ```
 
-Look again at 
+Look again at
 [http://localhost:8080/ghost](http://localhost:8080/ghost)
 
 All is lost! When we killed the Database it sent it's data into oblivion. Containers
