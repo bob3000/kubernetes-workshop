@@ -22,6 +22,10 @@
       - [Making the environment more flexible](#making-the-environment-more-flexible)
       - [Including MySQL as a requirement](#including-mysql-as-a-requirement)
       - [Exposing the _Service_ using an _Ingress_](#exposing-the-service-using-an-ingress)
+        - [Deploying the _Ingress Controller_](#deploying-the-ingress-controller)
+        - [Deploying the _Ingress_](#deploying-the-ingress)
+        - [Sending the correct `Host` header](#sending-the-correct-host-header)
+  - [Further reading](#further-reading)
 
 ## What is Helm?
 
@@ -410,3 +414,115 @@ can bring your own database from somewhere and just set `enabled: true`
 to `enabled: false` and that's it.
 
 #### Exposing the _Service_ using an _Ingress_
+
+What about accessing our blog though the browser. We were able to access
+it via port forwarding but this is of course no suitable way to publish
+a website.
+
+Kubernetes has the concept of an _Ingress_ to make Applications available
+from a regular URL.
+
+> An Ingress is an API object that defines rules which allow external
+> access to services in a cluster. An Ingress controller fulfills the
+> rules set in the Ingress.
+>
+> -- _Laotse_
+
+In plain english that means in order to expose our App we do not only
+need an _Ingress_ object but Ingress Controller which knows what to do
+with the _Ingress_.
+
+##### Deploying the _Ingress Controller_
+
+An Ingress Controller is an abstract concept and several different
+implementations of that concept are available. We will go for one of the
+most popular implementations here which is the Nginx Ingress Controller.
+
+That sound much more complicated as it actually is. Basically we will have
+an Nginx running and another component which listens for _Ingress_ objects
+and turns them into an Nginx config as soon as they appear and funnels
+the configuration into the running Nginx instance.
+
+Luckily somebody already prepared an Nginx Ingress Controller Helm
+chart for us to deploy.
+
+```sh
+helm install --set controller.service.type=NodePort,controller.service.nodePorts.http=30080 nginx-ingress stable/nginx-ingress
+```
+
+At this point you might ask yourself if the ingress controller would be
+another candidate to be added to our list of dependencies. The answer is
+simple and it's **no**. One _Ingress Controller_ will handle all _Ingress_
+objects on your Kubernetes. There are valid reasons to have more than one
+_Ingress Controller_ but definitely not one _Controller_ per application.
+
+##### Deploying the _Ingress_
+
+When this is done the only thing we're missing is the actual _Ingress_.
+Helm has thought of everything for us and already created and _Ingress_
+for us. We just have to enable and configure it.
+
+Open the file
+[charts/ghost/templates/ingress.yaml](charts/ghost/templates/ingress.yaml)
+read through it and see if you can relate variables to the values from
+[charts/ghost/values.yaml](charts/ghost/values.yaml) at the section
+`ingress`.
+
+In the `values.yaml` under the section `ingress` we have to replace the
+line `enabled: false` with `enabled: true`. The other thing of interest
+is the subparagraph `hosts`. Replace the whole paragraph with
+
+```yaml
+hosts:
+  - host: ghost.local
+    paths:
+      - /
+```
+
+Since we now adjusted the URL from which Ghost is to be reached we also
+have to tell the application itself about it by editing the `values.yaml`
+and go to the section where you defined the Ghost environment variables.
+replace the line `url: http://localhost:8080` with
+
+```yaml
+url: http://ghost.local:30080
+```
+
+Then you can upgrade the Ghost chart with
+
+```sh
+helm upgrade --install ghost ./ghost
+```
+
+When the deployment went through visit
+[http://ghost.local:30080/](http://ghost.local:30080/) and enjoy your
+Ghost blog running on Kubernetes deployed with Helm.
+
+Stay tuned for more happy days on Kubernetes.
+
+##### Sending the correct `Host` header
+
+The last thing necessary to access our blog is to send a request
+containing the correct `Host` header which we just set to `ghost.local`.
+
+This has nothing to do with Kubernetes it's more a necessity of our
+local environment because of the way how web servers deal with multiple
+domains on a single server. Basically we pointed the host `ghost.local`
+to our blog. If the `Host` header in a request is set to something else
+such as `localhost` the _Ingress Controller_ just wouldn't know which
+Application is responsible to handle the request.
+
+Long story short: Edit the file `/etc/hosts` and add this line
+at the bottom
+
+```
+127.0.0.1 ghost.local
+```
+
+if you use Docker Desktop. If you're using minikube replace the
+`127.0.0.1` with what ever IP gives you the `minikube ip` command.
+
+## Further reading
+
+- [https://v2.helm.sh/docs/developing_charts/](https://v2.helm.sh/docs/developing_charts/)
+- [https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/](https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/)
