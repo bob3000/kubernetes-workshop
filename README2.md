@@ -38,6 +38,8 @@ Helm is a package manger for Kubernetes - Helm Packages are called
 _Charts_ - Helm _Charts_ help you define, install, and upgrade even the
 most complex Kubernetes application.
 
+![Helm banner](https://cdn1.vogel.de/unsafe/fit-in/1000x0/images.vogel.de/vogelonline/bdb/1567000/1567093/original.jpg)
+
 ## Why Helm?
 
 ### Helm high level goals
