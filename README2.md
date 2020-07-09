@@ -8,6 +8,7 @@
   - [Why Helm?](#why-helm)
     - [Helm high level goals](#helm-high-level-goals)
     - [Helm functionality](#helm-functionality)
+    - [Installing Helm](#installing-helm)
   - [Upgrading our Ghost configuration to a Helm Chart](#upgrading-our-ghost-configuration-to-a-helm-chart)
     - [Setting the right context](#setting-the-right-context)
     - [Installing MySQL from a Helm repository](#installing-mysql-from-a-helm-repository)
@@ -25,6 +26,7 @@
         - [Deploying the _Ingress Controller_](#deploying-the-ingress-controller)
         - [Deploying the _Ingress_](#deploying-the-ingress)
         - [Sending the correct `Host` header](#sending-the-correct-host-header)
+      - [Cleaning up](#cleaning-up)
   - [Further reading](#further-reading)
 
 ## What is Helm?
@@ -50,16 +52,22 @@ most complex Kubernetes application.
 - Install and uninstall charts into an existing Kubernetes cluster
 - Manage the release cycle of charts that have been installed with Helm
 
+### Installing Helm
+
+Refer to installation instructions on the Helm website
+
+[https://helm.sh/docs/intro/install/](https://helm.sh/docs/intro/install/)
+
 ## Upgrading our Ghost configuration to a Helm Chart
 
 ### Setting the right context
 
-The namespace `ghost` should already exist from part one of the tutorial.
-Make sure to set the namespace as the default in your context.
+Create a new namespace and make sure to set the namespace as the default
+in your context.
 
 ```sh
-kubectl create namespace ghost2
-kubectl config set-context --current --namespace ghost2
+kubectl create namespace ghost
+kubectl config set-context --current --namespace ghost
 ```
 
 ### Installing MySQL from a Helm repository
@@ -102,6 +110,27 @@ configuration. Noting special about this MySQL container - just a lot less
 effort then last time when we had to write the Kube configuration
 ourselves.
 
+For a list of installed Helm _Charts_ do
+
+```sh
+helm list
+```
+
+Note that the concept of namespaces applies to the `helm` command just
+like it applies to the `kubectl` command. We are already in the desired
+namespace `ghost` but if you want to see installed charts from a different
+namespace you have to specify it with the `-n` switch (e.g.
+`helm -n kube-system list`) or use the `--all-namespaces` option to see
+all installed _Charts_.
+
+Just like `kubectl` the `helm` command also has a build in help system.
+If you want to get a certain command explained or if you want to see the
+list of possible command line options try
+
+```sh
+helm help <sub-command>
+```
+
 ### Your own _Ghost_ chart from scratch
 
 Let's reiterate the configuration we wrote last time. We will start from
@@ -110,10 +139,24 @@ a reference.
 
 #### Scaffolding a Helm Chart
 
-Helm can help you to scaffold the basic chart structure.
+Helm can help you to scaffold the basic chart structure. But first lets
+create a chart directory and change to it.
 
 ```sh
+mkdir charts
 cd charts
+```
+
+Next we want to use the `create` sub-command. The built in help can show
+you what the `create` can do for us.
+
+```sh
+helm help create
+```
+
+Scan through the displayed help and then go on with
+
+```sh
 helm create ghost
 ```
 
@@ -140,18 +183,17 @@ ghost/values.yaml
 
 Lot's of stuff! Helm is taking a lot of assumptions about what we might
 need in our Chart. The good news is that we can ignore quite some of the
-files. Normally it would be recommendable to do some clean up and delete
-everything which is not useful for our setup but for the sake of
-simplicity we'll just ignore what we don't need.
+files for the moment.
 
 So what is all that files? Open the file
 [charts/ghost/templates/service.yaml](charts/ghost/templates/service.yaml)
 and compare it's contents with the file
-[resources/service.yaml](resources/ghost-service.yaml).
+[resources/service.yaml](resources/ghost-service.yaml) from our last
+session.
 
 Both files look pretty similar but the one file has curly braces and in
 between there are some variables. You probably starting to understand what
-we're dealing with here.
+we're dealing here with.
 
 > Helm is a template engine with with some network capabilities.
 >
@@ -163,16 +205,15 @@ Remember when we just installed MySQL? When we issued the command
 1. Helm downloaded a `.tgz` archive from the repository with contents
    similar to those we just created
 2. It replaced the variables in the templates with the actual values
-3. Then it send the templated configurations to the Kubernetes API
+3. Then it sent the templated configurations to the Kubernetes API
 
 From here we will look at some files in more detail.
 
 #### The `Chart.yaml` files
 
 This file is as simple to explain as it is important. It contains
-mandatory meta-data such as the Chart's name and it's version. Helm
-already filled in the basic stuff for us so there is no need to change
-for now.
+mandatory meta-data such as the Chart's name and it's version. It can
+also contain a list of dependent _Charts_.
 
 #### The `.helmignore` files
 
@@ -185,7 +226,7 @@ our chart is packaged. No need for change here either.
 These are some notes which will be displayed as information to the user
 after the belonging Chart was installed. Templating is possible inside
 here so you can provide concrete instructions to the user about further
-steps to be undertaken with for instance correctly generated URLs
+steps to be undertaken with for instance correctly templated URLs
 tailored to the very system where the Chart was just deployed.
 
 #### The `values.yaml` files
@@ -204,20 +245,19 @@ the variables in the template files. Let's have a closer look at
    have to be strings).
 2. Configure the correct service port for Ghost which is `2368`. Look for
    the `service:` section and replace `port: 80` with port `port: 2368`.
-3. Disable the _ServiceAccount_ by scrolling down to the section
-   `serviceaccount` and replace the line `create: true` with
-   `crate: false`.
 
 **In `deployment.yaml`:**
 
 1. We still need to put some environment variables into the container so
    our Ghost will find the database. Open the files
    [resources/ghost-deployment.yaml](resources/ghost-deployment.yaml)
-   and [charts/ghost/templates/deployment.yaml](charts/ghost/templates/deployment.yaml) side by side and take some time to compare these files. You will
+   and [charts/ghost/templates/deployment.yaml](charts/ghost/templates/deployment.yaml)
+   side by side and take some time to compare these files. You will
    notice that Helm added lots of things we didn't particularly ask for.
-   The idea is that you get a proper skeleton of a _Deployment_ configuration
-   which can later on simply configures by adding some lines to the
-   `values.yaml` files. We'll see in a bit what that exactly means.  
+   The idea is that you get a proper skeleton of a _Deployment_
+   configuration which can later on simply be configured by adding some
+   lines to the `values.yaml` files. We'll see in a bit what that exactly
+   means.  
    Let's move on and look at the `env` section in the list of `containers`
    in the configuration we wrote in the former part of the tutorial. Copy
    the whole paragraph and put it at exactly the same place in the Helm
@@ -225,24 +265,30 @@ the variables in the template files. Let's have a closer look at
    adjust the database name, the database user and the password to the
    values we used above when we created the mysql database.
 
+   For convenience and clarity I copied the paragraph here for you with
+   two lines of context prepended so it's clearer where to put it
+
+```yaml
+containers:
+  - name: {{ .Chart.Name }}
+    env:
+      - name: database__client
+        value: mysql
+      - name: database__connection__host
+        value: ghost-mysql
+      - name: database__connection__user
+        value: ghost
+      - name: database__connection__password
+        value: secret
+      - name: database__connection__database
+        value: ghost
+      - name: url
+        value: http://localhost:8080
+```
+
 2. Another thing we must do is provide the correct port to the container
    definition. Look for the line `containerPort: 80` and replace the port
    number with `2368`.
-
-```yaml
-- name: database__client
-  value: mysql
-- name: database__connection__host
-  value: ghost-mysql
-- name: database__connection__user
-  value: ghost
-- name: database__connection__password
-  value: secret
-- name: database__connection__database
-  value: ghost
-- name: url
-  value: http://localhost:8080
-```
 
 #### The first test run
 
@@ -255,6 +301,10 @@ helm upgrade --install ghost ./ghost --dry-run
 
 Scan though the generated yaml configuration and then repeat the command
 above without the `--dry-run` argument.
+
+```sh
+helm upgrade --install ghost ./ghost
+```
 
 Is everything running as expected? Do you remember your toolkit from
 part one? Learn these commands by heart.
@@ -309,14 +359,29 @@ Use your browser's search function to find the string `mysqlUser`. There
 seems to be a commented value but where does it go from there. The story
 continues in the MySQL's
 [deployment.yaml](https://github.com/helm/charts/blob/master/stable/mysql/templates/deployment.yaml)
-there you can see how it's put into an environment variable in the
-container definition.
+there you can see how it's put into an environment variable called
+`MYSQL_USER` in the container definition. The browser search will help
+you to find it.
+
+**Exercise:**
 
 It's you turn now. Implement our Ghost Chart in exactly the same way by
-replacing the hard coded values in
+replacing the hard coded environment variables in
 [charts/ghost/templates/deployment.yaml](charts/ghost/templates/deployment.yaml)
 with variables and put the belonging values into the
 [charts/ghost/values.yaml](charts/ghost/values.yaml).
+
+Don't get confused by the length of the MySQL chart's `deployment.yaml`.
+Just focus on the `.env` section. Variables are written between curly
+braces and their values have to be defined in `values.yaml`. If you have
+ever written an HTML template in your life you should feel kind of at
+home.
+
+In `deployment.ymal` replace the hard coded value `ghost` for
+`database__connection__user` with a variable between curly braces like
+`{{ .Values.database__connection__user }} and then give it a value in
+`values.yaml` like `database__connection__user: ghost`. That's all it
+takes.
 
 If you want to use default values in the _Deployment_ definition is up
 to you. Personally I think it's cleaner to set the values right in the
@@ -330,6 +395,11 @@ helm upgrade --install ghost ./ghost
 ```
 
 And verify it everything works just like before.
+
+> „Der Sport ist nicht Selbstzweck, sondern Mittel zum Zweck.“
+>
+> ― _Erich Honecker_
+
 
 #### Including MySQL as a requirement
 
@@ -357,7 +427,7 @@ That's basically it. Now we need to tear down everything first so we
 can check if the dependency is properly added.
 
 ```sh
-helm delete ghost mysql
+helm delete ghost ghost-mysql
 ```
 
 Then we can fetch the dependency and start over again.
@@ -372,13 +442,34 @@ We have a new folder inside our project containing the MySQL dependency.
 ```sh
 > ls charts
 mysql-1.6.6.tgz
+> tar -tf charts/mysql-1.6.6.tgz
+mysql/Chart.yaml
+mysql/values.yaml
+mysql/templates/NOTES.txt
+mysql/templates/_helpers.tpl
+mysql/templates/configurationFiles-configmap.yaml
+mysql/templates/deployment.yaml
+mysql/templates/initializationFiles-configmap.yaml
+mysql/templates/pvc.yaml
+mysql/templates/secrets.yaml
+mysql/templates/serviceaccount.yaml
+mysql/templates/servicemonitor.yaml
+mysql/templates/svc.yaml
+mysql/templates/tests/test-configmap.yaml
+mysql/templates/tests/test.yaml
+mysql/.helmignore
+mysql/README.md
 ```
 
-Let's see if it works
+It's just another helm chart compressed into a `tgz` file included in our
+Ghost chart as it's dependency.
+
+So let's see if it works
 
 ```sh
 cd ..
 helm upgrade --install ghost ./ghost
+kubectl get pods
 ```
 
 We see both pods running even though we issued just one deployment
@@ -407,6 +498,21 @@ You got all the freedom to adjust a _Chart_ you haven't written yourself.
 Hopefully by now you got a grasp of the power of Helm and how it can help
 you to avoid to reinvent the wheel over and over again.
 
+Let's make our setup work again
+
+```sh
+helm delete ghost
+helm upgrade --install ghost ./ghost
+kubectl get pods
+```
+
+You might see a few restarts or even a _ChashLoopBackOff_ status. Which
+is due to the Ghost _Pod_ being up faster than the database it requires.
+Those things can be handled more gracefully but that's out of the scope
+of this tutorial.
+
+**Optional dependency**
+
 Just in case we or somebody else who might use our chart in the future
 does not want to use the mysql dependency which comes with the Chart
 we made it optional by adding a condition in the `Chart.yaml`. You can
@@ -429,7 +535,7 @@ from a regular URL.
 > -- _Laotse_
 
 In plain english that means in order to expose our App we do not only
-need an _Ingress_ object but Ingress Controller which knows what to do
+need an _Ingress_ object but _Ingress Controller_ which knows what to do
 with the _Ingress_.
 
 ##### Deploying the _Ingress Controller_
@@ -438,17 +544,24 @@ An Ingress Controller is an abstract concept and several different
 implementations of that concept are available. We will go for one of the
 most popular implementations here which is the Nginx Ingress Controller.
 
-That sound much more complicated as it actually is. Basically we will have
-an Nginx running and another component which listens for _Ingress_ objects
-and turns them into an Nginx config as soon as they appear and funnels
-the configuration into the running Nginx instance.
+That sounds much more complicated as it actually is. Basically we will
+have an Nginx running and another component which listens for _Ingress_
+objects and turns them into an Nginx config as soon as they appear and
+funnels the configuration into the running Nginx instance.
 
 Luckily somebody already prepared an Nginx Ingress Controller Helm
 chart for us to deploy.
 
 ```sh
 helm install --set controller.service.type=NodePort,controller.service.nodePorts.http=30080 nginx-ingress stable/nginx-ingress
+kubectl get pods
 ```
+
+Most commonly the ingress controller is deployed behind a load balancer.
+This option is not available here on our local environment and that's
+why we have to apply a little workaround here and make the _Ingress
+Controller_ listen on port `30080`. In a production environment that would
+of course not be the case.
 
 At this point you might ask yourself if the ingress controller would be
 another candidate to be added to our list of dependencies. The answer is
@@ -494,11 +607,19 @@ Then you can upgrade the Ghost chart with
 helm upgrade --install ghost ./ghost
 ```
 
-When the deployment went through visit
-[http://ghost.local:30080/](http://ghost.local:30080/) and enjoy your
-Ghost blog running on Kubernetes deployed with Helm.
+Now we got an _Ingress_. If you want to know which _Ingress_ are available
+you can apply the same grammar as you did when you listed all _Pods_. Just
+change the object
 
-Stay tuned for more happy days on Kubernetes.
+```sh
+kubectl get ingress
+```
+
+and you guessed it, it can also be described
+
+```sh
+kubectl describe ingress ghost
+```
 
 ##### Sending the correct `Host` header
 
@@ -521,6 +642,23 @@ at the bottom
 
 if you use Docker Desktop. If you're using minikube replace the
 `127.0.0.1` with what ever IP gives you the `minikube ip` command.
+
+When this is done visit
+[http://ghost.local:30080/](http://ghost.local:30080/) and enjoy your
+Ghost blog running on Kubernetes deployed with Helm.
+
+#### Cleaning up
+
+If you're done playing around with the stack the last thing to learn
+for today is how to remove a deployed helm chart.
+
+```sh
+helm list
+helm delete ghost nginx-ingress
+helm list
+```
+
+Stay tuned for more happy days on Kubernetes.
 
 ## Further reading
 
