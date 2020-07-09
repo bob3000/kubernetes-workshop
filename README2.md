@@ -1,5 +1,8 @@
 # Kubernetes workshop part II
 
+This is part two of the introduction to Kubernetes. Part one can be found
+[here](README.md).
+
 ## Table of contents
 
 - [Kubernetes workshop part II](#kubernetes-workshop-part-ii)

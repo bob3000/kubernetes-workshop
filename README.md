@@ -494,6 +494,9 @@ kubectl apply -f .
 
 Stay tuned for more happy days on Kubernetes!
 
+Part two of the introduction to Kubernetes can be found
+[here](README2.md).
+
 ## Further reading
 
 - [What is Kubernetes?](https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/)
